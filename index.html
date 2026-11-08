@@ -192,6 +192,124 @@ document.getElementById("sv").onclick=async()=>{
   location.reload()}
  catch(e){b.disabled=false;smsg("No se pudo guardar. Inténtalo otra vez.")}};
 document.getElementById("svd").onclick=()=>{try{localStorage.removeItem("barca26e")}catch(e){}location.reload()};
+const f=v=>v==null?"-":Number.isInteger(v)?String(v):v.toFixed(1);
+const ini=n=>n.split(" ").map(w=>w[0]).slice(0,2).join("");
+const col=s=>s==null?"#555":s>=9?"#1b9e4b":s>=7?"#2d7dd2":s>=5?"#e08a00":"#d33";
+const shows=o=>!inj.has(o.id)&&(o.p==="E"||START.has(o.id)||o.played!==false);
+let justDragged=false;
+function dropOn(src,tgt){
+ if(!tgt||tgt.p==="E"||src.p==="E")return;
+ const sS=START.has(src.id)&&!gone(src),tS=START.has(tgt.id)&&!gone(tgt);
+ if(sS&&tS){if(src.p==="G"||tgt.p==="G")return;freeze();
+  const lay=layout(),a=lay.find(r=>r.o===src),b=lay.find(r=>r.o===tgt);
+  if(a&&b){src.px=b.x;src.py=b.y;tgt.px=a.x;tgt.py=a.y}save();draw();return}
+ if(!sS&&tS){if(gone(src))return;
+  subIn(src,tgt.id);sel=src.id;save();draw();return}
+ if(sS&&!tS){if(gone(tgt))return;
+  subIn(tgt,src.id);sel=tgt.id;save();draw()}}
+function dragInit(b,o){
+ if(o.p==="E"||inj.has(o.id))return;
+ b.dataset.id=o.id;b.ondragstart=e=>e.preventDefault();
+ b.onpointerdown=ev=>{
+  if(ev.pointerType==="mouse"&&ev.button!==0)return;
+  const sx=ev.clientX,sy=ev.clientY;let g=null,hov=null;
+  const find=(x,y)=>{const t=document.elementFromPoint(x,y),k=t&&t.closest(".tk,.slot");return k&&k!==b&&(k.dataset.id||k.dataset.slot!==undefined)?k:null};
+  const mv=e=>{
+   if(!g&&Math.hypot(e.clientX-sx,e.clientY-sy)>7){g=b.querySelector(".ph").cloneNode(true);g.classList.add("ghost");document.body.appendChild(g);b.style.opacity=".4"}
+   if(g){g.style.left=e.clientX+"px";g.style.top=e.clientY+"px";
+    const h=find(e.clientX,e.clientY);if(hov&&hov!==h)hov.classList.remove("drop");if(h)h.classList.add("drop");hov=h;e.preventDefault()}};
+  const up=e=>{
+   removeEventListener("pointermove",mv);removeEventListener("pointerup",up);removeEventListener("pointercancel",up);
+   if(!g)return;g.remove();b.style.opacity="";if(hov)hov.classList.remove("drop");
+   justDragged=true;setTimeout(()=>justDragged=false,60);
+   const k=e.type==="pointerup"?find(e.clientX,e.clientY):null;
+   if(k){if(k.dataset.slot!==undefined)dropSlot(o,+k.dataset.slot);else dropOn(o,P.find(x=>x.id===k.dataset.id))}};
+  addEventListener("pointermove",mv,{passive:false});addEventListener("pointerup",up);addEventListener("pointercancel",up)}}
+function tok(o){
+ const b=document.createElement("button"),sh=shows(o);
+ b.className="tk"+(o.p==="E"?" cch":"")+(sel===o.id?" sel":"")+(sh?"":" np");
+ b.innerHTML=`<div class="ph">${photos[o.id]?`<img src="${photos[o.id]}" alt="">`:ini(o.n)}${sh?`<span class="bd" style="background:${col(o.s)}">${f(o.s)}</span>`:""}</div><div class="nm">${o.p==="E"?o.n:o.n.split(" ").slice(-1)[0]}</div><div class="nu">${o.p==="E"?"Entrenador":(inj.has(o.id)?"🤕 ":"")+"#"+o.num}</div>`;
+ b.onclick=()=>{if(justDragged)return;sel=o.id;draw()};dragInit(b,o);return b}
+function draw(keep){
+ fixSlots();
+ const pit=document.getElementById("pitch");pit.innerHTML='<div class="box l"></div><div class="box r"></div>';
+ const fmEl=document.getElementById("forms");fmEl.innerHTML='<span>Alineación:</span>';
+ const sl=document.createElement("select");Object.keys(FORMS).forEach(k=>{const op=document.createElement("option");op.value=op.textContent=k;if(k===FM)op.selected=true;sl.appendChild(op)});sl.onchange=()=>{FM=sl.value;P.forEach(o=>{o.px=o.py=null});SLOTS.length=0;save();draw()};fmEl.appendChild(sl);
+ layout().forEach(({o,x,y})=>{const t=tok(o);t.style.cssText=`position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);z-index:1`;pit.appendChild(t)});
+ SLOTS.forEach((sl,i)=>{const d=document.createElement("div");d.className="slot";d.dataset.slot=i;d.style.cssText=`left:${sl.x}%;top:${sl.y}%`;d.textContent="+";
+  d.onclick=()=>{const o=all().find(x=>x.id===sel);if(o&&o.p!=="E"&&!gone(o)){if(START.has(o.id))dropSlot(o,i);else{enter(o,i);save();draw()}}};pit.appendChild(d)});
+ const bn=document.getElementById("bench");bn.innerHTML='<div class="rl">Suplentes que han jugado</div>';
+ const r=document.createElement("div");r.className="row";
+ P.filter(o=>!START.has(o.id)&&!gone(o)&&o.played!==false).forEach(o=>r.appendChild(tok(o)));bn.appendChild(r);
+ const rs=document.getElementById("rest"),nr=P.filter(o=>!START.has(o.id)&&!gone(o)&&o.played===false);
+ rs.style.display=nr.length?"":"none";rs.innerHTML='<div class="rl">Suplentes que no han jugado</div>';const rr=document.createElement("div");rr.className="row";nr.forEach(o=>rr.appendChild(tok(o)));rs.appendChild(rr);
+ const il=P.filter(o=>inj.has(o.id)&&!out.has(o.id)),is=document.getElementById("injs");
+ is.innerHTML='<div class="rl">🤕 Lesionados</div>';const ir=document.createElement("div");ir.className="row";
+ if(il.length)il.forEach(o=>ir.appendChild(tok(o)));else ir.innerHTML='<span class="hint" style="margin:0">Nadie lesionado</span>';is.appendChild(ir);
+ const cs=document.getElementById("coach");cs.innerHTML='<div class="rl">Entrenador</div>';cs.appendChild(tok(COACH));
+ const ch=document.getElementById("chips");ch.innerHTML="";
+ P.forEach(o=>{const c=document.createElement("button");c.className="chip "+(out.has(o.id)?"off":"on");c.textContent=(inj.has(o.id)?"🤕 ":"")+o.n;
+  c.onclick=()=>{if(out.has(o.id)){out.delete(o.id);if(START.has(o.id)&&SLOTS.length)enter(o,0)}else{vacate(o);out.add(o.id);inj.delete(o.id);if(sel===o.id)sel=null}save();draw()};ch.appendChild(c)});
+ const act=P.filter(o=>!gone(o)&&shows(o)&&o.s!=null);
+ document.getElementById("avg").textContent=act.length?f(Math.round(act.reduce((a,b)=>a+b.s,0)/act.length*100)/100):"–";
+ if(!keep)editor()}
+const PLB=["LI","DFC","LD","MC","MCO","MI","MD","DC"];
+const sn=n=>{const p=n.split(" ");return p.length>2&&/^(de|da|van)$/i.test(p[p.length-2])?p.slice(-2).join(" "):p[p.length-1]};
+function posSel(o){
+ if(o.p==="G")return '<select id="pos"><option value="POR">Portero</option></select>';
+ const lay=layout().filter(r=>r.o.p!=="G"),me=lay.find(r=>r.o===o),cur=me?codeOf(me.x,me.y):"";
+ let h=`<select id="pos" title="Cambiar de posición"><option value="" selected>${cur}</option>`;
+ PLB.forEach(c=>{const L=lay.filter(r=>r.o!==o&&codeOf(r.x,r.y)===c);
+  if(!L.length){if(c!==cur)h+=`<option value="c:${c}">${c}</option>`}
+  else L.forEach(r=>h+=`<option value="o:${r.o.id}">${c}${L.length>1||c===cur?" · "+sn(r.o.n):""}</option>`)});
+ return h+"</select>"}
+function editor(){
+ const e=document.querySelector("#ed .in"),o=all().find(x=>x.id===sel);
+ if(!o){document.getElementById("ed").style.display="none";return}document.getElementById("ed").style.display="";
+ const co=o.p==="E",st=START.has(o.id),pl=shows(o),lz=inj.has(o.id);
+ const cur=P.filter(x=>START.has(x.id)&&!gone(x)),full=cur.length>=11;
+ const cand=cur.filter(x=>grp(x)===grp(o)).sort((a,b)=>ao(a)-ao(b));if(!st&&full&&!lz&&!cand.length)msg="No hay ningún titular de su línea para sustituir.";
+ const rpSel=(!st&&!lz&&!full)?`<button class="b g" id="rpb">Entrar al campo</button>`:"";
+ if(!st&&!lz&&!co&&full&&!msg)msg="Arrástralo sobre un titular para cambiarlo.";
+ e.innerHTML=`<div class="top"><div><b>${o.n}</b><div class="sub">${co?"Entrenador":"Dorsal "+o.num}</div></div><div class="bg"><span id="v">${pl?f(o.s):"–"}</span><small style="font-size:14px;color:var(--mu)">/10</small></div></div>
+ ${pl?`<div class="sl"><input id="rg" type="range" min="0" max="10" step="0.1" value="${o.s??5}"><input id="nb" type="number" min="0" max="10" step="0.1" value="${o.s??""}"></div>`:'<div class="sub" style="margin:8px 0">${lz?"🤕 Lesionado: sin nota":"No ha jugado: sin nota"}</div>'}
+ <div class="btns">
+ ${pl&&o.s!=null?'<button class="b g" id="na">Quitar nota (–)</button>':""}${co?"":lz?`<button class="b g" id="ib">Recuperado (al banquillo)</button><button class="b" id="rm">No convocado</button>`:`${st?posSel(o):""}${st?`<button class="b g" id="sw">Mandar al banquillo</button>`:rpSel}${st?"":`<button class="b g" id="pl">${o.played===false?"Poner nota (sí jugó)":"Quitar nota (no jugó)"}</button>`}<button class="b g" id="ib">Lesionado 🤕</button><button class="b" id="rm">No convocado</button>`}</div><div class="hint">${msg}</div>`;msg="";
+ const set=v=>{v=Math.min(10,Math.max(0,Math.round(v*10)/10));o.s=v;e.querySelector("#v").textContent=f(v);save();draw(true);return v};
+ const rg=e.querySelector("#rg"),nb=e.querySelector("#nb");
+ if(rg){rg.oninput=()=>{nb.value=set(+rg.value)};nb.oninput=()=>{if(nb.value!==""){rg.value=set(+nb.value)}}}
+ 
+ const sw=e.querySelector("#sw");if(sw)sw.onclick=()=>{
+  if(st){vacate(o);START.delete(o.id)}
+  else if(full){const rp=e.querySelector("#rp"),po=rp&&P.find(x=>x.id===rp.value);
+   if(!po)msg="No hay ningún titular de su línea para sustituir.";
+   else subIn(o,po.id)}
+  else START.add(o.id);save();draw()};
+ const rpb=e.querySelector("#rpb");if(rpb)rpb.onclick=()=>{enter(o,0);save();draw()};
+ const rps=e.querySelector("#rp");if(rps)rps.onchange=()=>{const v=rps.value;if(!v)return;
+  if(v==="_"){freeze();START.add(o.id)}
+  else subIn(o,v);
+  save();draw()};
+ const ib=e.querySelector("#ib");if(ib)ib.onclick=()=>{if(lz)inj.delete(o.id);else{vacate(o);inj.add(o.id);START.delete(o.id)}save();draw()};
+ const na=e.querySelector("#na");if(na)na.onclick=()=>{o.s=null;save();draw()};
+ const ps=e.querySelector("#pos");if(ps)ps.onchange=()=>{
+  const v=ps.value;if(!v)return;freeze();
+  const lay=layout().filter(r=>r.o.p!=="G"),me=lay.find(r=>r.o===o);
+  if(v[0]==="o"){const oc=lay.find(r=>r.o.id===v.slice(2));
+   if(oc&&me){oc.o.px=me.x;oc.o.py=me.y;o.px=oc.x;o.py=oc.y}}
+  else{const c=v.slice(2);o.px=POS[c][0];o.py=POS[c][1]}
+  save();draw()};
+ const pb=e.querySelector("#pl");if(pb)pb.onclick=()=>{o.played=o.played===false;save();draw()};
+ const rm=e.querySelector("#rm");if(rm)rm.onclick=()=>{vacate(o);out.add(o.id);inj.delete(o.id);sel=null;save();draw()}}
+document.getElementById("all").onclick=()=>{out.clear();save();draw()};
+document.getElementById("aadd").onclick=()=>{
+ const n=document.getElementById("an").value.trim();if(!n)return;
+ const nu=document.getElementById("anum").value;
+ const o={id:"c"+Date.now(),n,p:document.getElementById("ap").value,num:nu===""?"-":nu,s:6,played:true};
+ P.push(o);sel=o.id;document.getElementById("an").value="";document.getElementById("anum").value="";save();draw()};
+document.addEventListener("click",ev=>{const t=ev.target;if(!t.isConnected||t.closest(".tk,#ed,button,select,input,textarea,label,[contenteditable]"))return;if(sel!==null){sel=null;draw()}});
+document.getElementById("sub").oninput=save;
+document.getElementById("clr").onclick=()=>{all().forEach(o=>o.s=null);save();draw()};
 draw();updSave();
 })();
 </script>
