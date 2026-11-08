@@ -1,0 +1,16 @@
+PASOS (una sola vez)
+1. Instala Node.js (nodejs.org) si no lo tienes.
+2. Abre una terminal dentro de esta carpeta y ejecuta:
+     npm install
+     npm install -g netlify-cli
+     netlify login
+     netlify link        (elige tu sitio puntuando-jugadores-barcelona-joaanpu)
+3. En Netlify: Site configuration > Environment variables > Add variable
+     SAVE_PASSWORD = la contraseña que quieras (solo tu la sabras)
+4. Sube la web:
+     netlify deploy --prod
+
+USO
+- Abre la web, monta la plantilla y pulsa "Guardar plantilla" (abajo del todo).
+  La primera vez te pide la contraseña y la recuerda en tu navegador.
+- Cualquiera que entre ve la ultima version guardada.
